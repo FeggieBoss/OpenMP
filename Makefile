@@ -1,6 +1,6 @@
 CXX = g++
-CXXFLAGS = -O2 -Wall -Werror -std=c++17 -Iinclude
-LDFLAGS = 
+CXXFLAGS = -fopenmp -O2 -Wall -Werror -std=c++17 -Iinclude
+LDFLAGS = -fopenmp
 
 EXE = hw5
 SRCDIR = src
