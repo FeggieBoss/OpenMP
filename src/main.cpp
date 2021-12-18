@@ -61,8 +61,9 @@ int main(int argc, char* argv[]) {
     readed_bytes = fread(data, sizeof(uint8_t), height*width*pixel_sizeof, input_filep);
     if((int)readed_bytes != height*width*pixel_sizeof)
         throw_error("Wrong input file format (not enough bytes in data section)");
-  
-    #pragma omp parallel for reduction(min: min_grey, min_r, min_g, min_b) reduction(max: max_grey, max_r, max_g, max_b) shared(data, pixel_sizeof) schedule(static) num_threads(threads_c)
+    
+    double start = (double)clock();
+    #pragma omp parallel for reduction(min: min_grey, min_r, min_g, min_b) reduction(max: max_grey, max_r, max_g, max_b) schedule(static) num_threads(threads_c)
     for(int i=0;i<height*width*pixel_sizeof;++i) {
         if(pixel_sizeof == 1) {
             max_grey = std::max(max_grey, data[i]);
@@ -78,7 +79,7 @@ int main(int argc, char* argv[]) {
         }
     }   
     
-    #pragma omp parallel for shared(data, pixel_sizeof, max_grey, max_r, max_g, max_b, min_r, min_g, min_b) schedule(static) num_threads(threads_c)
+    #pragma omp parallel for schedule(static) num_threads(threads_c)
     for(int i=0;i<height*width;++i) {
         if(pixel_sizeof == 1) {
             data[i] = calc_norm(data[i], min_grey, max_grey);
@@ -89,6 +90,7 @@ int main(int argc, char* argv[]) {
             data[i/pixel_sizeof+2] = calc_norm(data[i/pixel_sizeof+2], min_b, max_b);
         }
     }
+    printf("Time (%i thread(s)): %g ms\n", (int)threads_c, (((double)clock()-start)/CLOCKS_PER_SEC)*1000);
 
     FILE* output_filep = fopen(argv[3],"wb");
     fprintf(output_filep, "%s\n%d %d\n%d\n", format, width, height, bound);
@@ -97,6 +99,4 @@ int main(int argc, char* argv[]) {
     delete data;
     fclose(input_filep);
     fclose(output_filep);
-
-    printf("Time (%i thread(s)): %g ms\n", (int)threads_c, ((double)clock()/CLOCKS_PER_SEC)*1000);
 }
