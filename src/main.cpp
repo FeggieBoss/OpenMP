@@ -56,40 +56,41 @@ int main(int argc, char* argv[]) {
     min_r = min_g = min_b = min_grey = UINT8_MAX;
 
     uint8_t *data;
-    uint8_t pixel_sizeof = std::string(format) == "P6" ? 3 : 1;
+    int pixel_sizeof = std::string(format) == "P6" ? 3 : 1;
     data = new uint8_t[height*width*pixel_sizeof];
     readed_bytes = fread(data, sizeof(uint8_t), height*width*pixel_sizeof, input_filep);
     if((int)readed_bytes != height*width*pixel_sizeof)
         throw_error("Wrong input file format (not enough bytes in data section)");
     
     double start = (double)clock();
-    #pragma omp parallel for reduction(min: min_grey, min_r, min_g, min_b) reduction(max: max_grey, max_r, max_g, max_b) schedule(static) num_threads(threads_c)
-    for(int i=0;i<height*width*pixel_sizeof;++i) {
+    #pragma omp parallel for reduction(min: min_grey, min_r, min_g, min_b) reduction(max: max_grey, max_r, max_g, max_b) shared(data, pixel_sizeof) schedule(static) num_threads(threads_c)
+    for(int i=0;i<height*width;++i) {
         if(pixel_sizeof == 1) {
             max_grey = std::max(max_grey, data[i]);
             min_grey = std::min(min_grey, data[i]);
         }
         else {
-            max_r = std::max(max_r, data[i/pixel_sizeof]);
-            min_r = std::min(min_r, data[i/pixel_sizeof]);
-            max_g = std::max(max_g, data[i/pixel_sizeof+1]);
-            min_g = std::min(min_g, data[i/pixel_sizeof+1]);
-            max_b = std::max(max_b, data[i/pixel_sizeof+2]);
-            min_b = std::min(min_b, data[i/pixel_sizeof+2]);
+            max_r = std::max(max_r, data[i*pixel_sizeof]);
+            min_r = std::min(min_r, data[i*pixel_sizeof]);
+            max_g = std::max(max_g, data[i*pixel_sizeof+1]);
+            min_g = std::min(min_g, data[i*pixel_sizeof+1]);
+            max_b = std::max(max_b, data[i*pixel_sizeof+2]);
+            min_b = std::min(min_b, data[i*pixel_sizeof+2]);
         }
     }   
     
-    #pragma omp parallel for schedule(static) num_threads(threads_c)
+    #pragma omp parallel for shared(data, pixel_sizeof, max_grey, max_r, max_g, max_b, min_r, min_g, min_b) schedule(static) num_threads(threads_c)
     for(int i=0;i<height*width;++i) {
         if(pixel_sizeof == 1) {
             data[i] = calc_norm(data[i], min_grey, max_grey);
         }
         else {
-            data[i/pixel_sizeof] = calc_norm(data[i/pixel_sizeof], min_r, max_r);
-            data[i/pixel_sizeof+1] = calc_norm(data[i/pixel_sizeof+1], min_g, max_g);
-            data[i/pixel_sizeof+2] = calc_norm(data[i/pixel_sizeof+2], min_b, max_b);
+            data[i*pixel_sizeof] = calc_norm(data[i*pixel_sizeof], min_r, max_r);
+            data[i*pixel_sizeof+1] = calc_norm(data[i*pixel_sizeof+1], min_g, max_g);
+            data[i*pixel_sizeof+2] = calc_norm(data[i*pixel_sizeof+2], min_b, max_b);
         }
     }
+
     printf("Time (%i thread(s)): %g ms\n", (int)threads_c, (((double)clock()-start)/CLOCKS_PER_SEC)*1000);
 
     FILE* output_filep = fopen(argv[3],"wb");
